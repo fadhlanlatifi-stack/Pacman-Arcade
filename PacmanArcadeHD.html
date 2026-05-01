@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PUCK-MAN · NAMCO 1980 · ARCADE CABINET</title>
+  <style>
+    body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Courier New', monospace;
+    }
+    .cabinet {
+      background: linear-gradient(180deg, #5c3a1e 0%, #2d1806 100%);
+      border: 15px solid #3a2410;
+      border-radius: 30px;
+      padding: 25px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px #8b6914;
+    }
+    canvas {
+      display: block;
+      border: 12px solid #1a0f00;
+      border-radius: 15px;
+      box-shadow: inset 0 0 30px black, 0 0 40px gold;
+    }
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 10px 10px;
+      gap: 40px;
+    }
+    .joystick-panel {
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 15px;
+      border: 5px solid #444;
+      box-shadow: inset 0 0 15px black;
+    }
+    .joystick-label {
+      color: #ffd700;
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 12px;
+      text-shadow: 0 0 10px gold;
+    }
+    .dpad {
+      display: grid;
+      grid-template-columns: 45px 45px 45px;
+      grid-template-rows: 45px 45px 45px;
+      gap: 5px;
+    }
+    .dpad button {
+      background: radial-gradient(circle at 30% 30%, #555, #111);
+      border: 2px solid #666;
+      color: #ffd700;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 8px;
+      box-shadow: 0 4px 0 #000;
+      transition: all 0.05s;
+    }
+    .dpad button:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #000;
+      background: radial-gradient(circle at 30% 30%, #ffd700, #8b6914);
+      color: black;
+    }
+    .center-btn {
+      background: radial-gradient(circle at 30% 30%, #cc0000, #550000) !important;
+      border-color: #ff4444 !important;
+    }
+    .action-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+    .arcade-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      border: 4px solid #d4af37;
+      box-shadow: 0 6px 0 #000, 0 0 20px rgba(255,215,0,0.3);
+      text-transform: uppercase;
+      transition: all 0.05s;
+      letter-spacing: 2px;
+    }
+    .arcade-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #000;
+    }
+    #coinBtn {
+      background: radial-gradient(circle at 30% 30%, #ffaa00, #8b6914);
+      color: #2d1806;
+    }
+    #startBtn {
+      background: radial-gradient(circle at 30% 30%, #ff3333, #8b0000);
+      color: white;
+    }
+    .credit-display {
+      color: #ffd700;
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      margin-top: 10px;
+      text-shadow: 0 0 10px gold;
+    }
+  </style>
+</head>
+<body>
+<div class="cabinet">
+  <canvas id="game" width="448" height="496"></canvas>
+  <div class="controls">
+    <!-- LEFT PLAYER 1 JOYSTICK -->
+    <div class="joystick-panel">
+      <div class="joystick-label">🕹️ 1P LEFT</div>
+      <div class="dpad">
+        <div></div>
+        <button id="up">▲</button>
+        <div></div>
+        <button id="left">◀</button>
+        <button class="center-btn"></button>
+        <button id="right">▶</button>
+        <div></div>
+        <button id="down">▼</button>
+        <div></div>
+      </div>
+    </div>
+    
+    <!-- ACTION BUTTONS -->
+    <div class="action-panel">
+      <button class="arcade-btn" id="coinBtn">INSERT<br>COIN</button>
+      <button class="arcade-btn" id="startBtn">START</button>
+    </div>
+  </div>
+  <div class="credit-display" id="creditText">◎ CREDIT 0</div>
+</div>
+
+<script>
+  (function() {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    
+    const maze = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+      [1,3,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,3,1],
+      [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+      [1,2,1,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,1,2,1],
+      [1,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1],
+      [1,1,1,1,2,1,1,1,0,1,2,1,0,1,1,1,2,1,1,1,1],
+      [0,0,0,1,2,1,2,2,2,2,2,2,2,2,2,1,2,1,0,0,0],
+      [1,1,1,1,2,1,2,1,1,4,4,4,1,1,2,1,2,1,1,1,1],
+      [2,2,2,2,2,2,2,1,4,4,4,4,4,1,2,2,2,2,2,2,2],
+      [1,1,1,1,2,1,2,1,4,4,4,4,4,1,2,1,2,1,1,1,1],
+      [0,0,0,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,0,0,0],
+      [1,1,1,1,2,1,2,2,2,2,2,2,2,2,2,1,2,1,1,1,1],
+      [1,2,2,2,2,2,2,2,2,1,2,2,2,1,2,2,2,2,2,2,1],
+      [1,3,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,1,3,1],
+      [1,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,1],
+      [1,1,2,1,2,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1],
+      [1,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1],
+      [1,2,1,1,1,1,1,1,2,1,2,1,2,1,1,1,1,1,1,2,1],
+      [1,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    let pellets = [];
+    let pacman = { x: 9, y: 15, dir: 'right', nextDir: 'right' };
+    let ghosts = [
+      { x: 9, y: 9, name: 'AKABEI', color: '#ff0000', homeX: 9, homeY: 9, frightened: false },
+      { x: 10, y: 9, name: 'PINKY', color: '#ffb8ff', homeX: 10, homeY: 9, frightened: false },
+      { x: 9, y: 10, name: 'AOSUKE', color: '#00ffff', homeX: 9, homeY: 10, frightened: false },
+      { x: 10, y: 10, name: 'GUZUTA', color: '#ffb852', homeX: 10, homeY: 10, frightened: false }
+    ];
+    let score = 0;
+    let lives = 3;
+    let credit = 0;
+    let gameState = 'waiting';
+    let powerMode = false;
+    let powerTimer = 0;
+    let ghostMoveCounter = 0;
+
+    function resetPellets() {
+      pellets = [];
+      for (let y = 0; y < maze.length; y++) {
+        for (let x = 0; x < maze[y].length; x++) {
+          if (maze[y][x] === 2) pellets.push({ x, y });
+          if (maze[y][x] === 3) pellets.push({ x, y, power: true });
+        }
+      }
+    }
+
+    function startGame() {
+      if (credit <= 0) return;
+      credit--;
+      document.getElementById('creditText').textContent = '◎ CREDIT ' + credit;
+      lives = 3;
+      score = 0;
+      pacman = { x: 9, y: 15, dir: 'right', nextDir: 'right' };
+      ghosts = [
+        { x: 9, y: 9, name: 'AKABEI', color: '#ff0000', homeX: 9, homeY: 9, frightened: false },
+        { x: 10, y: 9, name: 'PINKY', color: '#ffb8ff', homeX: 10, homeY: 9, frightened: false },
+        { x: 9, y: 10, name: 'AOSUKE', color: '#00ffff', homeX: 9, homeY: 10, frightened: false },
+        { x: 10, y: 10, name: 'GUZUTA', color: '#ffb852', homeX: 10, homeY: 10, frightened: false }
+      ];
+      powerMode = false;
+      powerTimer = 0;
+      ghostMoveCounter = 0;
+      resetPellets();
+      gameState = 'playing';
+    }
+
+    function canMove(x, y, isGhost = false) {
+      if (x < 0 || x >= 21 || y < 0 || y >= 23) return false;
+      let tile = maze[y][x];
+      if (tile === 1) return false;
+      if (tile === 4 && !isGhost) return false;
+      return true;
+    }
+
+    function movePacman() {
+      if (gameState !== 'playing') return;
+      
+      let nx = pacman.x, ny = pacman.y;
+      if (pacman.nextDir === 'right') nx++;
+      if (pacman.nextDir === 'left') nx--;
+      if (pacman.nextDir === 'up') ny--;
+      if (pacman.nextDir === 'down') ny++;
+      
+      if (canMove(nx, ny)) {
+        pacman.dir = pacman.nextDir;
+        pacman.x = nx;
+        pacman.y = ny;
+      } else {
+        nx = pacman.x; ny = pacman.y;
+        if (pacman.dir === 'right') nx++;
+        if (pacman.dir === 'left') nx--;
+        if (pacman.dir === 'up') ny--;
+        if (pacman.dir === 'down') ny++;
+        if (canMove(nx, ny)) {
+          pacman.x = nx;
+          pacman.y = ny;
+        }
+      }
+      
+      if (pacman.x < 0) pacman.x = 20;
+      if (pacman.x > 20) pacman.x = 0;
+      
+      for (let i = pellets.length-1; i >= 0; i--) {
+        if (pellets[i].x === pacman.x && pellets[i].y === pacman.y) {
+          if (pellets[i].power) {
+            score += 50;
+            powerMode = true;
+            powerTimer = 200;
+            ghosts.forEach(g => g.frightened = true);
+          } else {
+            score += 10;
+          }
+          pellets.splice(i, 1);
+        }
+      }
+      
+      if (pellets.length === 0) resetPellets();
+    }
+
+    function moveGhosts() {
+      if (gameState !== 'playing') return;
+      ghostMoveCounter++;
+      if (ghostMoveCounter % 4 !== 0) return;
+      
+      ghosts.forEach(ghost => {
+        let dirs = [];
+        let x = ghost.x, y = ghost.y;
+        
+        if (canMove(x+1, y, true)) dirs.push('right');
+        if (canMove(x-1, y, true)) dirs.push('left');
+        if (canMove(x, y-1, true)) dirs.push('up');
+        if (canMove(x, y+1, true)) dirs.push('down');
+        
+        if (dirs.length > 0) {
+          let dir;
+          if (ghost.frightened) {
+            dir = dirs[Math.floor(Math.random() * dirs.length)];
+          } else {
+            let tx = pacman.x, ty = pacman.y;
+            dir = dirs[0];
+            let best = 999;
+            dirs.forEach(d => {
+              let nx = x, ny = y;
+              if (d === 'right') nx++; if (d === 'left') nx--;
+              if (d === 'up') ny--; if (d === 'down') ny++;
+              let dist = Math.abs(nx-tx) + Math.abs(ny-ty);
+              if (dist < best) { best = dist; dir = d; }
+            });
+          }
+          
+          if (dir === 'right') ghost.x++;
+          if (dir === 'left') ghost.x--;
+          if (dir === 'up') ghost.y--;
+          if (dir === 'down') ghost.y++;
+        }
+        
+        if (ghost.x < 0) ghost.x = 20;
+        if (ghost.x > 20) ghost.x = 0;
+      });
+      
+      if (powerMode) {
+        powerTimer--;
+        if (powerTimer <= 0) {
+          powerMode = false;
+          ghosts.forEach(g => g.frightened = false);
+        }
+      }
+    }
+
+    function checkCollision() {
+      if (gameState !== 'playing') return;
+      
+      ghosts.forEach(ghost => {
+        if (ghost.x === pacman.x && ghost.y === pacman.y) {
+          if (ghost.frightened) {
+            score += 200;
+            ghost.frightened = false;
+            ghost.x = ghost.homeX;
+            ghost.y = ghost.homeY;
+          } else {
+            lives--;
+            if (lives <= 0) {
+              gameState = 'gameover';
+            } else {
+              pacman.x = 9; pacman.y = 15;
+              ghosts.forEach(g => {
+                g.x = g.homeX; g.y = g.homeY;
+                g.frightened = false;
+              });
+              powerMode = false;
+            }
+          }
+        }
+      });
+    }
+
+    function draw() {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, 448, 496);
+      
+      for (let y = 0; y < maze.length; y++) {
+        for (let x = 0; x < maze[y].length; x++) {
+          let px = x * 8, py = y * 8;
+          if (maze[y][x] === 1) {
+            ctx.fillStyle = '#0000cc';
+            ctx.fillRect(px, py, 8, 8);
+            ctx.fillStyle = '#000088';
+            ctx.fillRect(px+1, py+1, 6, 6);
+          }
+          if (maze[y][x] === 4) {
+            ctx.fillStyle = '#222';
+            ctx.fillRect(px, py, 8, 8);
+          }
+        }
+      }
+      
+      ctx.fillStyle = '#ffccaa';
+      pellets.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x*8+4, p.y*8+4, p.power ? 3 : 1.5, 0, Math.PI*2);
+        ctx.fill();
+      });
+      
+      let px = pacman.x * 8 + 4, py = pacman.y * 8 + 4;
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath();
+      let mouth = 0.25;
+      let startAngle = 0;
+      if (pacman.dir === 'right') startAngle = mouth;
+      if (pacman.dir === 'left') startAngle = Math.PI + mouth;
+      if (pacman.dir === 'up') startAngle = -Math.PI/2 + mouth;
+      if (pacman.dir === 'down') startAngle = Math.PI/2 + mouth;
+      ctx.arc(px, py, 3.5, startAngle, startAngle + Math.PI*2 - mouth*2);
+      ctx.lineTo(px, py);
+      ctx.fill();
+      
+      ghosts.forEach(g => {
+        let gx = g.x * 8 + 4, gy = g.y * 8 + 4;
+        ctx.fillStyle = g.frightened ? (powerTimer < 60 && Math.floor(Date.now()/200)%2 ? 'white' : '#2121ff') : g.color;
+        ctx.beginPath();
+        ctx.arc(gx, gy-1, 3.5, Math.PI, 0);
+        ctx.lineTo(gx+3.5, gy+2);
+        for (let i=0; i<3; i++) {
+          ctx.lineTo(gx+2.5-i*2, gy+1);
+          ctx.lineTo(gx+1.5-i*2, gy+2.5);
+        }
+        ctx.lineTo(gx-3.5, gy+2);
+        ctx.fill();
+        
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(gx-1.2, gy-1.5, 1, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx+1.2, gy-1.5, 1, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'blue';
+        ctx.beginPath(); ctx.arc(gx-1.2, gy-1.7, 0.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx+1.2, gy-1.7, 0.5, 0, Math.PI*2); ctx.fill();
+      });
+      
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 10px "Courier New"';
+      ctx.fillText('SCORE: ' + score, 10, 180);
+      ctx.fillText('LIVES: ' + lives, 10, 195);
+      
+      if (gameState === 'waiting') {
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 14px "Courier New"';
+        ctx.fillText('INSERT COIN', 130, 260);
+        ctx.fillText('PRESS START', 135, 280);
+      }
+      if (gameState === 'gameover') {
+        ctx.fillStyle = '#ff0000';
+        ctx.font = 'bold 14px "Courier New"';
+        ctx.fillText('GAME OVER', 140, 260);
+      }
+    }
+
+    function gameLoop() {
+      movePacman();
+      moveGhosts();
+      checkCollision();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.getElementById('up').onclick = () => pacman.nextDir = 'up';
+    document.getElementById('down').onclick = () => pacman.nextDir = 'down';
+    document.getElementById('left').onclick = () => pacman.nextDir = 'left';
+    document.getElementById('right').onclick = () => pacman.nextDir = 'right';
+    
+    document.getElementById('coinBtn').onclick = () => {
+      credit++;
+      document.getElementById('creditText').textContent = '◎ CREDIT ' + credit;
+    };
+    
+    document.getElementById('startBtn').onclick = startGame;
+
+    document.onkeydown = (e) => {
+      if (e.key === 'ArrowUp') { e.preventDefault(); pacman.nextDir = 'up'; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); pacman.nextDir = 'down'; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); pacman.nextDir = 'left'; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); pacman.nextDir = 'right'; }
+      if (e.key === '5') { credit++; document.getElementById('creditText').textContent = '◎ CREDIT ' + credit; }
+      if (e.key === '1') startGame();
+    };
+
+    resetPellets();
+    gameLoop();
+  })();
+</script>
+</body>
+</html>
